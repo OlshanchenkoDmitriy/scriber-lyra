@@ -34,6 +34,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { SpecialCharsManager } from "./SpecialCharsManager";
 import { historyAPI } from "@/lib/storage";
+import { clipboard } from "@/lib/clipboard";
 
 export const Editor = () => {
   const [text, setText] = useState("");
@@ -73,27 +74,45 @@ export const Editor = () => {
     }
   };
 
-  const copyToClipboard = () => {
-    navigator.clipboard.writeText(text);
-    toast({
-      title: "Скопировано",
-      description: "Текст скопирован в буфер обмена",
-    });
+  const copyToClipboard = async () => {
+    const success = await clipboard.copy(text);
+    if (success) {
+      toast({
+        title: "Скопировано",
+        description: "Текст скопирован в буфер обмена",
+      });
+    } else {
+      toast({
+        title: "Ошибка копирования",
+        description: "Не удалось скопировать текст. Попробуйте выделить текст и использовать Ctrl+C",
+        variant: "destructive",
+      });
+    }
   };
 
   const pasteFromClipboard = async () => {
-    try {
-      const clipboardText = await navigator.clipboard.readText();
+    const clipboardText = await clipboard.read();
+    if (clipboardText) {
       handleTextChange(text + clipboardText);
       toast({
         title: "Вставлено",
         description: "Текст вставлен из буфера обмена",
       });
-    } catch (err) {
-      toast({
-        title: "Ошибка",
-        description: "Не удалось прочитать буфер обмена",
-      });
+    } else {
+      // Если не удалось прочитать буфер обмена, предлагаем альтернативы
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+        toast({
+          title: "Внимание",
+          description: "Используйте Ctrl+V или длительное нажатие в поле ввода для вставки",
+        });
+      } else {
+        toast({
+          title: "Ошибка буфера обмена",
+          description: "Не удалось прочитать буфер обмена. Проверьте разрешения приложения",
+          variant: "destructive",
+        });
+      }
     }
   };
 

@@ -1,0 +1,16 @@
+{
+  "name": "LinguaScribe",
+  "short_name": "LinguaScribe",
+  "description": "Универсальный редактор текстов и песен",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1a1a1a",
+  "theme_color": "#4a9eff",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    }
+  ]
+}
