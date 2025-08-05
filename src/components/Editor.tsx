@@ -13,11 +13,23 @@ import {
   Search,
   Type,
   Hash,
-  Smile,
   Space,
   FileText,
   Clipboard,
   Save,
+  Bold,
+  Underline,
+  Code,
+  Heading1,
+  Minus,
+  List,
+  AlignLeft,
+  SortAsc,
+  Hash as HashIcon,
+  Calculator,
+  SeparatorHorizontal,
+  ArrowRightLeft,
+  Settings,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { SpecialCharsManager } from "./SpecialCharsManager";
@@ -29,6 +41,7 @@ export const Editor = () => {
   const [replaceTerm, setReplaceTerm] = useState("");
   const [history, setHistory] = useState<string[]>([""]);
   const [historyIndex, setHistoryIndex] = useState(0);
+  const [separator, setSeparator] = useState(",");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { toast } = useToast();
 
@@ -95,7 +108,6 @@ export const Editor = () => {
       return;
     }
 
-    // Определяем язык текста (простая эвристика)
     const hasRussianChars = /[а-яё]/i.test(text);
     const language: "ru" | "en" = hasRussianChars ? "ru" : "en";
 
@@ -108,46 +120,66 @@ export const Editor = () => {
     toast({ title: "Сохранено", description: "Текст добавлен в историю" });
   };
 
-  const removeSpecialChars = () => {
-    const cleanText = text.replace(/[^\p{L}\p{N}\s]/gu, "");
-    handleTextChange(cleanText);
-    toast({ title: "Очищено", description: "Специальные символы удалены" });
-  };
-
-  const findAndReplace = () => {
-    if (!searchTerm) return;
-    const newText = text.split(searchTerm).join(replaceTerm);
-    handleTextChange(newText);
-    toast({ title: "Замена", description: "Текст заменен" });
-  };
-
-  const transformCase = (type: "upper" | "lower" | "title") => {
+  // Основные функции форматирования
+  const transformCase = (type: "title" | "sentence") => {
     let newText = text;
     switch (type) {
-      case "upper":
-        newText = text.toUpperCase();
-        break;
-      case "lower":
-        newText = text.toLowerCase();
-        break;
       case "title":
         newText = text.replace(
           /\w\S*/g,
           (txt) => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase()
         );
         break;
+      case "sentence":
+        newText = text.replace(/(^\w|\.\s+\w)/g, (letter) =>
+          letter.toUpperCase()
+        );
+        break;
     }
     handleTextChange(newText);
     toast({
       title: "Форматирование",
-      description: `Регистр изменен на ${type}`,
+      description: `Регистр изменен на ${
+        type === "title" ? "заглавный" : "первая буква заглавная"
+      }`,
     });
   };
 
-  const cleanSpaces = () => {
+  const removeExtraSpaces = () => {
     const newText = text.replace(/\s+/g, " ").trim();
     handleTextChange(newText);
     toast({ title: "Очистка", description: "Лишние пробелы удалены" });
+  };
+
+  const removeDuplicateLines = () => {
+    const lines = text.split("\n");
+    const uniqueLines = [...new Set(lines)];
+    const newText = uniqueLines.join("\n");
+    handleTextChange(newText);
+    toast({ title: "Очистка", description: "Дубликаты строк удалены" });
+  };
+
+  const sortLines = () => {
+    const lines = text.split("\n").filter((line) => line.trim());
+    const sortedLines = lines.sort();
+    const newText = sortedLines.join("\n");
+    handleTextChange(newText);
+    toast({
+      title: "Сортировка",
+      description: "Строки отсортированы по алфавиту",
+    });
+  };
+
+  const countCharacters = () => {
+    const chars = text.length;
+    const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+    const lines = text.split("\n").length;
+    const paragraphs = text.split(/\n\s*\n/).length;
+
+    toast({
+      title: "Статистика",
+      description: `Символов: ${chars}, Слов: ${words}, Строк: ${lines}, Параграфов: ${paragraphs}`,
+    });
   };
 
   const removeEmptyLines = () => {
@@ -156,19 +188,110 @@ export const Editor = () => {
     toast({ title: "Очистка", description: "Пустые строки удалены" });
   };
 
-  const removeNumbers = () => {
-    const newText = text.replace(/\d/g, "");
+  // Функции преобразования списков
+  const inlineToList = () => {
+    const lines = text.split("\n");
+    const newLines = lines.map((line) => {
+      if (line.trim()) {
+        return line
+          .split(separator)
+          .map((item) => item.trim())
+          .filter((item) => item)
+          .join("\n");
+      }
+      return line;
+    });
+    const newText = newLines.join("\n");
     handleTextChange(newText);
-    toast({ title: "Очистка", description: "Цифры удалены" });
+    toast({
+      title: "Преобразование",
+      description: "Inline текст преобразован в список",
+    });
   };
 
-  const removeEmojis = () => {
-    const newText = text.replace(
-      /[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu,
-      ""
-    );
+  const listToInline = () => {
+    const lines = text.split("\n");
+    const newLines = lines.map((line) => {
+      if (line.trim()) {
+        return line.trim();
+      }
+      return line;
+    });
+    const newText = newLines
+      .filter((line) => line.trim())
+      .join(separator + " ");
     handleTextChange(newText);
-    toast({ title: "Очистка", description: "Эмодзи удалены" });
+    toast({
+      title: "Преобразование",
+      description: "Список преобразован в inline текст",
+    });
+  };
+
+  // Markdown функции
+  const addMarkdown = (
+    type: "bold" | "underline" | "code" | "heading" | "separator"
+  ) => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selectedText = text.substring(start, end);
+
+    let newText = text;
+    let replacement = "";
+
+    switch (type) {
+      case "bold":
+        replacement = `**${selectedText}**`;
+        break;
+      case "underline":
+        replacement = `__${selectedText}__`;
+        break;
+      case "code":
+        replacement = `\`${selectedText}\``;
+        break;
+      case "heading":
+        replacement = `# ${selectedText}`;
+        break;
+      case "separator":
+        replacement = selectedText ? `${selectedText}\n\n---\n\n` : "---";
+        break;
+    }
+
+    newText = text.substring(0, start) + replacement + text.substring(end);
+    handleTextChange(newText);
+
+    // Устанавливаем курсор после вставленного текста
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(
+        start + replacement.length,
+        start + replacement.length
+      );
+    }, 0);
+
+    toast({ title: "Markdown", description: `${type} добавлен` });
+  };
+
+  const removeMarkdown = () => {
+    let newText = text
+      .replace(/\*\*(.*?)\*\*/g, "$1") // **bold**
+      .replace(/__(.*?)__/g, "$1") // __underline__
+      .replace(/`(.*?)`/g, "$1") // `code`
+      .replace(/^#\s+/gm, "") // # heading
+      .replace(/^---$/gm, "") // --- separator
+      .replace(/\n\s*\n---\s*\n\s*\n/g, "\n\n"); // separator with newlines
+
+    handleTextChange(newText);
+    toast({ title: "Markdown", description: "Разметка удалена" });
+  };
+
+  const findAndReplace = () => {
+    if (!searchTerm) return;
+    const newText = text.split(searchTerm).join(replaceTerm);
+    handleTextChange(newText);
+    toast({ title: "Замена", description: "Текст заменен" });
   };
 
   const getStats = () => {
@@ -260,13 +383,22 @@ export const Editor = () => {
 
           {/* Статистика */}
           <div className="flex flex-wrap gap-1 md:gap-2">
-            <Badge variant="outline" className="bg-background/50 text-xs md:text-sm">
+            <Badge
+              variant="outline"
+              className="bg-background/50 text-xs md:text-sm"
+            >
               Символов: {stats.chars}
             </Badge>
-            <Badge variant="outline" className="bg-background/50 text-xs md:text-sm">
+            <Badge
+              variant="outline"
+              className="bg-background/50 text-xs md:text-sm"
+            >
               Слов: {stats.words}
             </Badge>
-            <Badge variant="outline" className="bg-background/50 text-xs md:text-sm">
+            <Badge
+              variant="outline"
+              className="bg-background/50 text-xs md:text-sm"
+            >
               Строк: {stats.lines}
             </Badge>
           </div>
@@ -321,57 +453,154 @@ export const Editor = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="grid grid-cols-3 gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => transformCase("upper")}
-                className="text-xs"
-              >
-                ВЕРХНИЙ
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => transformCase("lower")}
-                className="text-xs"
-              >
-                нижний
-              </Button>
+            {/* Основные функции */}
+            <div className="grid grid-cols-2 gap-2">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => transformCase("title")}
                 className="text-xs"
               >
+                <Type className="w-3 h-3 mr-1" />
                 Заглавный
               </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => transformCase("sentence")}
+                className="text-xs"
+              >
+                <Type className="w-3 h-3 mr-1" />
+                Первая заглавная
+              </Button>
             </div>
+
+            {/* Функции очистки */}
             <div className="grid grid-cols-2 gap-2">
-              <Button variant="outline" size="sm" onClick={removeSpecialChars}>
+              <Button variant="outline" size="sm" onClick={clearText}>
                 <Hash className="w-3 h-3 mr-1" />
                 Удалить все
               </Button>
-              <Button variant="outline" size="sm" onClick={cleanSpaces}>
+              <Button variant="outline" size="sm" onClick={removeExtraSpaces}>
                 <Space className="w-3 h-3 mr-1" />
-                Пробелы
+                Удалить пробелы
               </Button>
-              <Button variant="outline" size="sm" onClick={removeNumbers}>
-                123
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={removeDuplicateLines}
+              >
+                <List className="w-3 h-3 mr-1" />
+                Удалить дубликаты
               </Button>
-              <Button variant="outline" size="sm" onClick={removeEmojis}>
-                <Smile className="w-3 h-3 mr-1" />
-                Эмодзи
+              <Button variant="outline" size="sm" onClick={removeEmptyLines}>
+                <AlignLeft className="w-3 h-3 mr-1" />
+                Удалить пустые строки
               </Button>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={removeEmptyLines}
-              className="w-full"
-            >
-              Пустые строки
-            </Button>
+
+            {/* Дополнительные функции */}
+            <div className="grid grid-cols-2 gap-2">
+              <Button variant="outline" size="sm" onClick={sortLines}>
+                <SortAsc className="w-3 h-3 mr-1" />
+                Сортировать строки
+              </Button>
+              <Button variant="outline" size="sm" onClick={countCharacters}>
+                <Calculator className="w-3 h-3 mr-1" />
+                Подсчитать символы
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Функции списков и Markdown */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Card className="bg-card border-border">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center space-x-2">
+              <ArrowRightLeft className="w-4 h-4 text-primary" />
+              <span>Преобразование списков</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div>
+              <Label htmlFor="separator">Разделитель</Label>
+              <Input
+                id="separator"
+                value={separator}
+                onChange={(e) => setSeparator(e.target.value)}
+                placeholder="Разделитель (например: ,)"
+                className="bg-background/50"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <Button variant="outline" size="sm" onClick={inlineToList}>
+                <List className="w-3 h-3 mr-1" />
+                Inline → Список
+              </Button>
+              <Button variant="outline" size="sm" onClick={listToInline}>
+                <AlignLeft className="w-3 h-3 mr-1" />
+                Список → Inline
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-card border-border">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center space-x-2">
+              <HashIcon className="w-4 h-4 text-primary" />
+              <span>Markdown</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => addMarkdown("bold")}
+              >
+                <Bold className="w-3 h-3 mr-1" />
+                ** Жирный **
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => addMarkdown("underline")}
+              >
+                <Underline className="w-3 h-3 mr-1" />
+                __ Подчеркнутый __
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => addMarkdown("code")}
+              >
+                <Code className="w-3 h-3 mr-1" />` Код `
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => addMarkdown("heading")}
+              >
+                <Heading1 className="w-3 h-3 mr-1" /># Заголовок
+              </Button>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => addMarkdown("separator")}
+              >
+                <SeparatorHorizontal className="w-3 h-3 mr-1" />
+                --- Разделитель
+              </Button>
+              <Button variant="outline" size="sm" onClick={removeMarkdown}>
+                <Settings className="w-3 h-3 mr-1" />
+                Убрать Markdown
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
