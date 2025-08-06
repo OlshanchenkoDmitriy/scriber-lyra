@@ -264,10 +264,10 @@ export const Settings = () => {
         </CardHeader>
         <CardContent className="space-y-2 text-sm text-muted-foreground">
           <p>
-            <strong>LinguaScribe</strong> - персональное приложение для работы с
+            <strong>Text Wizard</strong> - персональное приложение для работы с
             текстом
           </p>
-          <p>Версия: 1.0.0</p>
+          <p>Версия: 1.1.0</p>
           <p>Все данные хранятся локально на вашем устройстве</p>
           <p>Работает полностью офлайн</p>
         </CardContent>

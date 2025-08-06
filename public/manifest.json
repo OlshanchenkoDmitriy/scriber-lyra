@@ -1,6 +1,6 @@
 {
-  "name": "LinguaScribe",
-  "short_name": "LinguaScribe",
+  "name": "Text Wizard",
+  "short_name": "Text Wizard",
   "description": "Универсальный редактор текстов и песен",
   "start_url": "/",
   "display": "standalone",
