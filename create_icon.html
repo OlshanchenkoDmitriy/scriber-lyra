@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>LinguaScribe Icon Generator</title>
+    <title>Text Wizard Icon Generator</title>
     <style>
       body {
         margin: 0;
@@ -56,10 +56,10 @@
       }
 
       .letters {
-        font-size: 24px;
+        font-size: 20px;
         font-weight: bold;
         color: #1e3a8a;
-        letter-spacing: -2px;
+        font-family: "Courier New", monospace;
       }
 
       .size-label {
@@ -95,14 +95,14 @@
   </head>
   <body>
     <h1 style="color: white; margin-bottom: 30px">
-      LinguaScribe Icon Generator
+      Text Wizard Icon Generator
     </h1>
 
     <div class="preview">
       <div class="icon-container">
         <div class="icon" id="icon108">
           <div class="document">
-            <div class="letters">LS</div>
+            <div class="letters">&lt;/&gt;</div>
           </div>
         </div>
         <div class="size-label">108x108px</div>
@@ -111,7 +111,7 @@
       <div class="icon-container">
         <div class="icon" id="icon72" style="width: 72px; height: 72px">
           <div class="document" style="width: 40px; height: 47px">
-            <div class="letters" style="font-size: 16px">LS</div>
+            <div class="letters" style="font-size: 14px">&lt;/&gt;</div>
           </div>
         </div>
         <div class="size-label">72x72px</div>
@@ -120,7 +120,7 @@
       <div class="icon-container">
         <div class="icon" id="icon48" style="width: 48px; height: 48px">
           <div class="document" style="width: 27px; height: 31px">
-            <div class="letters" style="font-size: 11px">LS</div>
+            <div class="letters" style="font-size: 9px">&lt;/&gt;</div>
           </div>
         </div>
         <div class="size-label">48x48px</div>
@@ -129,7 +129,7 @@
       <div class="icon-container">
         <div class="icon" id="icon36" style="width: 36px; height: 36px">
           <div class="document" style="width: 20px; height: 23px">
-            <div class="letters" style="font-size: 8px">LS</div>
+            <div class="letters" style="font-size: 7px">&lt;/&gt;</div>
           </div>
         </div>
         <div class="size-label">36x36px</div>
@@ -180,12 +180,12 @@
         ctx.closePath();
         ctx.fill();
 
-        // Рисуем буквы LS
+        // Рисуем символ </> (теги кода)
         ctx.fillStyle = "#1e3a8a";
-        ctx.font = `bold ${size * 0.22}px Arial`;
+        ctx.font = `bold ${size * 0.18}px 'Courier New', monospace`;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.fillText("LS", docX + docWidth / 2, docY + docHeight / 2);
+        ctx.fillText("</>", docX + docWidth / 2, docY + docHeight / 2);
 
         // Скачиваем
         const link = document.createElement("a");

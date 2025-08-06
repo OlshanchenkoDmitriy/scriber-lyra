@@ -10,86 +10,79 @@ import glob
 from pathlib import Path
 
 def distribute_icons():
-    """Распределяет иконки из папки icons по соответствующим папкам"""
+    """Распределяет иконки из папки new_icons по нужным папкам проекта"""
     
-    icons_folder = "icons"
-    
-    if not os.path.exists(icons_folder):
-        print("❌ Папка 'icons' не найдена!")
-        print("📋 Создайте папку 'icons' и поместите туда скачанные иконки")
-        return False
-    
-    # Проверяем наличие файлов в папке icons
-    icon_files = glob.glob(f"{icons_folder}/*.png")
-    
-    if not icon_files:
-        print("❌ В папке 'icons' не найдены PNG файлы!")
-        print("📋 Поместите скачанные иконки в папку 'icons'")
-        return False
-    
-    print(f"🎨 Найдено {len(icon_files)} иконок в папке 'icons'")
-    
-    # Маппинг иконок на целевые папки
-    icon_mappings = {
-        # Android иконки
-        "icon-mipmap-mdpi-48x48.png": "android/app/src/main/res/mipmap-mdpi/ic_launcher.png",
-        "icon-mipmap-hdpi-72x72.png": "android/app/src/main/res/mipmap-hdpi/ic_launcher.png", 
-        "icon-mipmap-xhdpi-96x96.png": "android/app/src/main/res/mipmap-xhdpi/ic_launcher.png",
-        "icon-mipmap-xxhdpi-144x144.png": "android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png",
-        "icon-mipmap-xxxhdpi-192x192.png": "android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png",
-        
-        # Веб иконки
-        "icon-Favicon-32x32.png": "public/favicon.ico",
-        "icon-Web Icon-192x192.png": "public/icon-192.png",
-        
-        # Play Store иконка (сохраняем в корень для будущего использования)
-        "icon-Play Store-512x512.png": "play-store-icon.png"
+    # Пути для Android иконок
+    android_paths = {
+        'ic_launcher-mdpi.png': 'android/app/src/main/res/mipmap-mdpi/ic_launcher.png',
+        'ic_launcher-hdpi.png': 'android/app/src/main/res/mipmap-hdpi/ic_launcher.png',
+        'ic_launcher-xhdpi.png': 'android/app/src/main/res/mipmap-xhdpi/ic_launcher.png',
+        'ic_launcher-xxhdpi.png': 'android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png',
+        'ic_launcher-xxxhdpi.png': 'android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png',
     }
     
-    print("\n🔄 Распределение иконок...")
+    # Пути для круглых Android иконок
+    android_round_paths = {
+        'ic_launcher_round-mdpi.png': 'android/app/src/main/res/mipmap-mdpi/ic_launcher_round.png',
+        'ic_launcher_round-hdpi.png': 'android/app/src/main/res/mipmap-hdpi/ic_launcher_round.png',
+        'ic_launcher_round-xhdpi.png': 'android/app/src/main/res/mipmap-xhdpi/ic_launcher_round.png',
+        'ic_launcher_round-xxhdpi.png': 'android/app/src/main/res/mipmap-xxhdpi/ic_launcher_round.png',
+        'ic_launcher_round-xxxhdpi.png': 'android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png',
+    }
     
-    distributed_count = 0
-    not_found = []
+    # Пути для Web иконок
+    web_paths = {
+        'icon-192.png': 'public/icon-192.png',
+        'icon-512.png': 'public/icon-512.png',
+        'favicon.ico': 'public/favicon.ico',
+    }
     
-    for icon_name, target_path in icon_mappings.items():
-        source_path = os.path.join(icons_folder, icon_name)
-        
+    source_dir = 'new_icons'
+    
+    if not os.path.exists(source_dir):
+        print(f"❌ Папка {source_dir} не найдена!")
+        return
+    
+    print("🚀 Начинаю распределение иконок...")
+    
+    # Копируем Android иконки
+    print("\n📱 Копирую Android иконки:")
+    for source, destination in android_paths.items():
+        source_path = os.path.join(source_dir, source)
         if os.path.exists(source_path):
-            try:
-                # Создаем папку если её нет
-                target_dir = os.path.dirname(target_path)
-                if target_dir:
-                    os.makedirs(target_dir, exist_ok=True)
-                
-                # Копируем иконку
-                shutil.copy2(source_path, target_path)
-                print(f"✅ {icon_name} → {target_path}")
-                distributed_count += 1
-                
-            except Exception as e:
-                print(f"❌ Ошибка при копировании {icon_name}: {e}")
+            os.makedirs(os.path.dirname(destination), exist_ok=True)
+            shutil.copy2(source_path, destination)
+            print(f"  ✅ {source} -> {destination}")
         else:
-            not_found.append(icon_name)
+            print(f"  ❌ Файл не найден: {source}")
     
-    # Выводим статистику
-    print(f"\n📊 Статистика:")
-    print(f"✅ Распределено: {distributed_count} иконок")
-    print(f"⚠️  Не найдено: {len(not_found)} иконок")
+    # Копируем круглые Android иконки
+    print("\n🔵 Копирую круглые Android иконки:")
+    for source, destination in android_round_paths.items():
+        source_path = os.path.join(source_dir, source)
+        if os.path.exists(source_path):
+            os.makedirs(os.path.dirname(destination), exist_ok=True)
+            shutil.copy2(source_path, destination)
+            print(f"  ✅ {source} -> {destination}")
+        else:
+            print(f"  ❌ Файл не найден: {source}")
     
-    if not_found:
-        print(f"\n📋 Не найденные иконки:")
-        for icon in not_found:
-            print(f"   - {icon}")
+    # Копируем Web иконки
+    print("\n🌐 Копирую Web иконки:")
+    for source, destination in web_paths.items():
+        source_path = os.path.join(source_dir, source)
+        if os.path.exists(source_path):
+            os.makedirs(os.path.dirname(destination), exist_ok=True)
+            shutil.copy2(source_path, destination)
+            print(f"  ✅ {source} -> {destination}")
+        else:
+            print(f"  ❌ Файл не найден: {source}")
     
-    # Проверяем Android проект
-    if os.path.exists("android"):
-        print(f"\n📱 Android проект найден!")
-        print(f"🎯 Иконки Android готовы к использованию")
-    else:
-        print(f"\n⚠️  Android проект не найден")
-        print(f"📋 Выполните: npx cap add android")
-    
-    return distributed_count > 0
+    print("\n🎉 Распределение иконок завершено!")
+    print("\n📋 Следующие шаги:")
+    print("1. Пересоберите приложение: npm run build")
+    print("2. Синхронизируйте с Android: npx cap sync android")
+    print("3. Соберите APK: cd android && .\\gradlew assembleDebug")
 
 def create_web_manifest():
     """Создает или обновляет web app manifest с новыми иконками"""
@@ -167,26 +160,16 @@ def main():
     print("=" * 60)
     
     # Распределяем иконки
-    success = distribute_icons()
+    distribute_icons()
     
-    if success:
-        # Обновляем веб-часть
-        create_web_manifest()
-        update_index_html()
-        
-        print(f"\n🚀 Следующие шаги:")
-        print(f"1. Соберите проект: npm run build")
-        print(f"2. Синхронизируйте Android: npx cap sync android") 
-        print(f"3. Откройте в Android Studio: npx cap open android")
-        print(f"4. Проверьте иконки в браузере: npm run dev")
-        
-        print(f"\n🎯 Иконки готовы к использованию!")
-        print(f"📱 Android: иконки в папках mipmap-*")
-        print(f"🌐 Web: favicon.ico и icon-192.png")
-        print(f"📦 Play Store: play-store-icon.png")
+    if os.path.exists("android"):
+        print(f"\n📱 Android проект найден!")
+        print(f"🎯 Иконки Android готовы к использованию")
     else:
-        print(f"\n❌ Не удалось распределить иконки")
-        print(f"📋 Убедитесь, что иконки находятся в папке 'icons'")
+        print(f"\n⚠️  Android проект не найден")
+        print(f"📋 Выполните: npx cap add android")
+    
+    return True # Always return True as distribute_icons now handles its own success/failure
 
 if __name__ == "__main__":
     main() 
