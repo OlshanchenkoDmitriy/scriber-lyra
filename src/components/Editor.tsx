@@ -1,10 +1,12 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Progress } from "@/components/ui/progress";
 import {
   Copy,
   Trash2,
@@ -30,6 +32,9 @@ import {
   SeparatorHorizontal,
   ArrowRightLeft,
   Settings,
+  Download,
+  Share2,
+  Eye,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { SpecialCharsManager } from "./SpecialCharsManager";
@@ -43,8 +48,28 @@ export const Editor = () => {
   const [history, setHistory] = useState<string[]>([""]);
   const [historyIndex, setHistoryIndex] = useState(0);
   const [separator, setSeparator] = useState(",");
+  const [favoriteSeparators, setFavoriteSeparators] = useState<string[]>([]);
+  const [showInvisible, setShowInvisible] = useState(false);
+  const [targetChars, setTargetChars] = useState<number>(0);
+  const [targetWords, setTargetWords] = useState<number>(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { toast } = useToast();
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("editor_fav_separators");
+      if (saved) setFavoriteSeparators(JSON.parse(saved));
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        "editor_fav_separators",
+        JSON.stringify(favoriteSeparators.slice(0, 8))
+      );
+    } catch {}
+  }, [favoriteSeparators]);
 
   const addToHistory = (newText: string) => {
     const newHistory = history.slice(0, historyIndex + 1);
@@ -74,6 +99,45 @@ export const Editor = () => {
     }
   };
 
+  // Selection helpers
+  const getSelection = () => {
+    const el = textareaRef.current;
+    if (!el) return { start: 0, end: 0 };
+    return { start: el.selectionStart, end: el.selectionEnd };
+  };
+
+  const replaceRange = (source: string, start: number, end: number, insert: string) => {
+    return source.substring(0, start) + insert + source.substring(end);
+  };
+
+  const applyToSelectionOrAll = (transform: (input: string) => string) => {
+    const el = textareaRef.current;
+    if (!el) {
+      handleTextChange(transform(text));
+      return;
+    }
+    const { start, end } = getSelection();
+    if (start !== end) {
+      const selected = text.substring(start, end);
+      const changed = transform(selected);
+      const next = replaceRange(text, start, end, changed);
+      handleTextChange(next);
+      // Restore selection around changed block
+      setTimeout(() => {
+        el.focus();
+        el.setSelectionRange(start, start + changed.length);
+      }, 0);
+    } else {
+      const next = transform(text);
+      handleTextChange(next);
+      setTimeout(() => {
+        el.focus();
+        const pos = Math.min(next.length, start);
+        el.setSelectionRange(pos, pos);
+      }, 0);
+    }
+  };
+
   const copyToClipboard = async () => {
     const success = await clipboard.copy(text);
     if (success) {
@@ -84,7 +148,8 @@ export const Editor = () => {
     } else {
       toast({
         title: "Ошибка копирования",
-        description: "Не удалось скопировать текст. Попробуйте выделить текст и использовать Ctrl+C",
+        description:
+          "Не удалось скопировать текст. Попробуйте выделить текст и использовать Ctrl+C",
         variant: "destructive",
       });
     }
@@ -93,13 +158,16 @@ export const Editor = () => {
   const pasteFromClipboard = async () => {
     const clipboardText = await clipboard.read();
     if (clipboardText) {
-      handleTextChange(text + clipboardText);
-      toast({
-        title: "Вставлено",
-        description: "Текст вставлен из буфера обмена",
-      });
+      const el = textareaRef.current;
+      if (el && el.selectionStart !== el.selectionEnd) {
+        const { start, end } = getSelection();
+        const next = replaceRange(text, start, end, clipboardText);
+        handleTextChange(next);
+      } else {
+        handleTextChange(text + clipboardText);
+      }
+      toast({ title: "Вставлено", description: "Текст вставлен из буфера обмена" });
     } else {
-      // Если не удалось прочитать буфер обмена, предлагаем альтернативы
       if (textareaRef.current) {
         textareaRef.current.focus();
         toast({
@@ -139,54 +207,42 @@ export const Editor = () => {
     toast({ title: "Сохранено", description: "Текст добавлен в историю" });
   };
 
-  // Основные функции форматирования
+  // Основные функции форматирования (с учётом выделения)
   const transformCase = (type: "title" | "sentence") => {
-    let newText = text;
-    switch (type) {
-      case "title":
-        newText = text.replace(
-          /\w\S*/g,
-          (txt) => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase()
-        );
-        break;
-      case "sentence":
-        newText = text.replace(/(^\w|\.\s+\w)/g, (letter) =>
-          letter.toUpperCase()
-        );
-        break;
-    }
-    handleTextChange(newText);
+    applyToSelectionOrAll((chunk) => {
+      switch (type) {
+        case "title":
+          return chunk.replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase());
+        case "sentence":
+          return chunk.replace(/(^\w|\.\s+\w)/g, (letter) => letter.toUpperCase());
+      }
+    });
     toast({
       title: "Форматирование",
-      description: `Регистр изменен на ${
-        type === "title" ? "заглавный" : "первая буква заглавная"
-      }`,
+      description: `Регистр изменен на ${type === "title" ? "заглавный" : "первая буква заглавная"}`,
     });
   };
 
   const removeExtraSpaces = () => {
-    const newText = text.replace(/\s+/g, " ").trim();
-    handleTextChange(newText);
+    applyToSelectionOrAll((chunk) => chunk.replace(/\s+/g, " ").trim());
     toast({ title: "Очистка", description: "Лишние пробелы удалены" });
   };
 
   const removeDuplicateLines = () => {
-    const lines = text.split("\n");
-    const uniqueLines = [...new Set(lines)];
-    const newText = uniqueLines.join("\n");
-    handleTextChange(newText);
+    applyToSelectionOrAll((chunk) => {
+      const lines = chunk.split("\n");
+      const unique = [...new Set(lines)];
+      return unique.join("\n");
+    });
     toast({ title: "Очистка", description: "Дубликаты строк удалены" });
   };
 
   const sortLines = () => {
-    const lines = text.split("\n").filter((line) => line.trim());
-    const sortedLines = lines.sort();
-    const newText = sortedLines.join("\n");
-    handleTextChange(newText);
-    toast({
-      title: "Сортировка",
-      description: "Строки отсортированы по алфавиту",
+    applyToSelectionOrAll((chunk) => {
+      const lines = chunk.split("\n").filter((l) => l.trim());
+      return lines.sort().join("\n");
     });
+    toast({ title: "Сортировка", description: "Строки отсортированы по алфавиту" });
   };
 
   const countCharacters = () => {
@@ -202,51 +258,43 @@ export const Editor = () => {
   };
 
   const removeEmptyLines = () => {
-    const newText = text.replace(/^\s*[\r\n]/gm, "");
-    handleTextChange(newText);
+    applyToSelectionOrAll((chunk) => chunk.replace(/^\s*[\r\n]/gm, ""));
     toast({ title: "Очистка", description: "Пустые строки удалены" });
   };
 
-  // Функции преобразования списков
+  // Функции преобразования списков (с учётом выделения)
   const inlineToList = () => {
-    const lines = text.split("\n");
-    const newLines = lines.map((line) => {
-      if (line.trim()) {
-        return line
-          .split(separator)
-          .map((item) => item.trim())
-          .filter((item) => item)
-          .join("\n");
-      }
-      return line;
+    applyToSelectionOrAll((chunk) => {
+      return chunk
+        .split("\n")
+        .map((line) => {
+          if (line.trim()) {
+            return line
+              .split(separator)
+              .map((item) => item.trim())
+              .filter((item) => item)
+              .join("\n");
+          }
+          return line;
+        })
+        .join("\n");
     });
-    const newText = newLines.join("\n");
-    handleTextChange(newText);
-    toast({
-      title: "Преобразование",
-      description: "Inline текст преобразован в список",
-    });
+    toast({ title: "Преобразование", description: "Inline текст преобразован в список" });
   };
 
   const listToInline = () => {
-    const lines = text.split("\n");
-    const newLines = lines.map((line) => {
-      if (line.trim()) {
-        return line.trim();
-      }
-      return line;
+    applyToSelectionOrAll((chunk) => {
+      const newLines = chunk
+        .split("\n")
+        .map((line) => (line.trim() ? line.trim() : line));
+      return newLines
+        .filter((line) => line.trim())
+        .join(separator + " ");
     });
-    const newText = newLines
-      .filter((line) => line.trim())
-      .join(separator + " ");
-    handleTextChange(newText);
-    toast({
-      title: "Преобразование",
-      description: "Список преобразован в inline текст",
-    });
+    toast({ title: "Преобразование", description: "Список преобразован в inline текст" });
   };
 
-  // Markdown функции
+  // Markdown функции (как было)
   const addMarkdown = (
     type: "bold" | "underline" | "code" | "heading" | "separator"
   ) => {
@@ -281,13 +329,9 @@ export const Editor = () => {
     newText = text.substring(0, start) + replacement + text.substring(end);
     handleTextChange(newText);
 
-    // Устанавливаем курсор после вставленного текста
     setTimeout(() => {
       textarea.focus();
-      textarea.setSelectionRange(
-        start + replacement.length,
-        start + replacement.length
-      );
+      textarea.setSelectionRange(start + replacement.length, start + replacement.length);
     }, 0);
 
     toast({ title: "Markdown", description: `${type} добавлен` });
@@ -295,12 +339,12 @@ export const Editor = () => {
 
   const removeMarkdown = () => {
     let newText = text
-      .replace(/\*\*(.*?)\*\*/g, "$1") // **bold**
-      .replace(/__(.*?)__/g, "$1") // __underline__
-      .replace(/`(.*?)`/g, "$1") // `code`
-      .replace(/^#\s+/gm, "") // # heading
-      .replace(/^---$/gm, "") // --- separator
-      .replace(/\n\s*\n---\s*\n\s*\n/g, "\n\n"); // separator with newlines
+      .replace(/\*\*(.*?)\*\*/g, "$1")
+      .replace(/__(.*?)__/g, "$1")
+      .replace(/`(.*?)`/g, "$1")
+      .replace(/^#\s+/gm, "")
+      .replace(/^---$/gm, "")
+      .replace(/\n\s*\n---\s*\n\s*\n/g, "\n\n");
 
     handleTextChange(newText);
     toast({ title: "Markdown", description: "Разметка удалена" });
@@ -308,19 +352,71 @@ export const Editor = () => {
 
   const findAndReplace = () => {
     if (!searchTerm) return;
-    const newText = text.split(searchTerm).join(replaceTerm);
-    handleTextChange(newText);
+    const el = textareaRef.current;
+    if (el && el.selectionStart !== el.selectionEnd) {
+      const { start, end } = getSelection();
+      const selected = text.substring(start, end);
+      const replaced = selected.split(searchTerm).join(replaceTerm);
+      const next = replaceRange(text, start, end, replaced);
+      handleTextChange(next);
+    } else {
+      const newText = text.split(searchTerm).join(replaceTerm);
+      handleTextChange(newText);
+    }
     toast({ title: "Замена", description: "Текст заменен" });
   };
 
-  const getStats = () => {
+  // Быстрые исправления
+  const fixDoubleSpaces = () => applyToSelectionOrAll((c) => c.replace(/\s{2,}/g, " "));
+  const fixSpaceBeforePunct = () => applyToSelectionOrAll((c) => c.replace(/\s+([,.;:!?\)\]\}])/g, "$1").replace(/([\(\[\{])\s+/g, "$1"));
+  const fixDoublePunctuation = () => applyToSelectionOrAll((c) => c.replace(/([,.;:!?])\1+/g, "$1"));
+  const replaceWithSmartQuotesRu = () => applyToSelectionOrAll((c) => c.replace(/"([^\"]+)"/g, "«$1»"));
+
+  // Невидимые символы (превью)
+  const visualizeInvisible = (source: string) => {
+    const lines = source.split("\n");
+    const marked = lines.map((ln) => ln.replace(/\t/g, "⇥").replace(/ /g, "·") + " ↵");
+    return marked.join("\n");
+  };
+
+  // Экспорт и общий доступ
+  const exportAs = (format: "txt" | "md") => {
+    const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `text.${format}`;
+    link.click();
+    URL.revokeObjectURL(url);
+    toast({ title: "Экспорт", description: `Файл .${format} сохранен` });
+  };
+
+  const shareText = async () => {
+    try {
+      if ((navigator as any).share) {
+        await (navigator as any).share({ title: "Текстовый редактор", text });
+      } else {
+        throw new Error("share-not-supported");
+      }
+    } catch {
+      toast({ title: "Поделиться", description: "Поделиться не поддерживается на вашем устройстве", variant: "destructive" });
+    }
+  };
+
+  const addCurrentSeparatorToFavorites = () => {
+    if (!separator) return;
+    if (favoriteSeparators.includes(separator)) return;
+    const next = [separator, ...favoriteSeparators].slice(0, 8);
+    setFavoriteSeparators(next);
+    toast({ title: "Сохранено", description: "Разделитель добавлен в избранные" });
+  };
+
+  const stats = (() => {
     const chars = text.length;
     const words = text.trim() ? text.trim().split(/\s+/).length : 0;
     const lines = text.split("\n").length;
     return { chars, words, lines };
-  };
-
-  const stats = getStats();
+  })();
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -354,37 +450,27 @@ export const Editor = () => {
             >
               <Redo className="w-4 h-4" />
             </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={copyToClipboard}
-              title="Копировать"
-            >
+            <Button variant="outline" size="icon" onClick={copyToClipboard} title="Копировать">
               <Copy className="w-4 h-4" />
             </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={pasteFromClipboard}
-              title="Вставить"
-            >
+            <Button variant="outline" size="icon" onClick={pasteFromClipboard} title="Вставить">
               <Clipboard className="w-4 h-4" />
             </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={clearText}
-              title="Очистить"
-            >
+            <Button variant="outline" size="icon" onClick={clearText} title="Очистить">
               <Trash2 className="w-4 h-4" />
             </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={saveToHistory}
-              title="Сохранить в историю"
-            >
+            <Button variant="outline" size="icon" onClick={saveToHistory} title="Сохранить в историю">
               <Save className="w-4 h-4" />
+            </Button>
+            {/* Экспорт/Шеринг */}
+            <Button variant="outline" size="icon" onClick={() => exportAs("txt")} title="Экспорт .txt">
+              <Download className="w-4 h-4" />
+            </Button>
+            <Button variant="outline" size="icon" onClick={() => exportAs("md")} title="Экспорт .md">
+              <HashIcon className="w-4 h-4" />
+            </Button>
+            <Button variant="outline" size="icon" onClick={shareText} title="Поделиться">
+              <Share2 className="w-4 h-4" />
             </Button>
           </div>
 
@@ -397,27 +483,31 @@ export const Editor = () => {
             className="min-h-[200px] md:min-h-[300px] bg-background/50 border-border focus:border-primary transition-smooth"
           />
 
+          {/* Просмотр невидимых символов */}
+          <div className="flex items-center gap-2">
+            <Switch checked={showInvisible} onCheckedChange={setShowInvisible} id="show-invisible" />
+            <Label htmlFor="show-invisible" className="text-sm flex items-center gap-1">
+              <Eye className="w-4 h-4" /> Показать невидимые символы
+            </Label>
+          </div>
+          {showInvisible && (
+            <pre className="p-3 rounded-md border border-border bg-muted/30 text-xs overflow-auto whitespace-pre-wrap">
+              {visualizeInvisible(text)}
+            </pre>
+          )}
+
           {/* Панель специальных символов */}
           <SpecialCharsManager text={text} onTextChange={handleTextChange} />
 
           {/* Статистика */}
           <div className="flex flex-wrap gap-1 md:gap-2">
-            <Badge
-              variant="outline"
-              className="bg-background/50 text-xs md:text-sm"
-            >
+            <Badge variant="outline" className="bg-background/50 text-xs md:text-sm">
               Символов: {stats.chars}
             </Badge>
-            <Badge
-              variant="outline"
-              className="bg-background/50 text-xs md:text-sm"
-            >
+            <Badge variant="outline" className="bg-background/50 text-xs md:text-sm">
               Слов: {stats.words}
             </Badge>
-            <Badge
-              variant="outline"
-              className="bg-background/50 text-xs md:text-sm"
-            >
+            <Badge variant="outline" className="bg-background/50 text-xs md:text-sm">
               Строк: {stats.lines}
             </Badge>
           </div>
@@ -454,12 +544,8 @@ export const Editor = () => {
                 className="bg-background/50"
               />
             </div>
-            <Button
-              onClick={findAndReplace}
-              disabled={!searchTerm}
-              className="w-full"
-            >
-              Заменить все
+            <Button onClick={findAndReplace} disabled={!searchTerm} className="w-full">
+              Заменить все {/** с учётом выделения, если есть */}
             </Button>
           </CardContent>
         </Card>
@@ -474,64 +560,55 @@ export const Editor = () => {
           <CardContent className="space-y-3">
             {/* Основные функции */}
             <div className="grid grid-cols-2 gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => transformCase("title")}
-                className="text-xs"
-              >
-                <Type className="w-3 h-3 mr-1" />
-                Заглавный
+              <Button variant="outline" size="sm" onClick={() => transformCase("title")} className="text-xs">
+                <Type className="w-3 h-3 mr-1" /> Заглавный
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => transformCase("sentence")}
-                className="text-xs"
-              >
-                <Type className="w-3 h-3 mr-1" />
-                Первая заглавная
+              <Button variant="outline" size="sm" onClick={() => transformCase("sentence")} className="text-xs">
+                <Type className="w-3 h-3 mr-1" /> Первая заглавная
               </Button>
             </div>
 
             {/* Функции очистки */}
             <div className="grid grid-cols-2 gap-2">
               <Button variant="outline" size="sm" onClick={clearText}>
-                <Hash className="w-3 h-3 mr-1" />
-                Удалить все
+                <Hash className="w-3 h-3 mr-1" /> Удалить все
               </Button>
               <Button variant="outline" size="sm" onClick={removeExtraSpaces}>
-                <Space className="w-3 h-3 mr-1" />
-                Удалить пробелы
+                <Space className="w-3 h-3 mr-1" /> Удалить пробелы
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={removeDuplicateLines}
-              >
-                <List className="w-3 h-3 mr-1" />
-                Удалить дубликаты
+              <Button variant="outline" size="sm" onClick={removeDuplicateLines}>
+                <List className="w-3 h-3 mr-1" /> Удалить дубликаты
               </Button>
               <Button variant="outline" size="sm" onClick={removeEmptyLines}>
-                <AlignLeft className="w-3 h-3 mr-1" />
-                Удалить пустые строки
+                <AlignLeft className="w-3 h-3 mr-1" /> Удалить пустые строки
               </Button>
             </div>
 
             {/* Дополнительные функции */}
             <div className="grid grid-cols-2 gap-2">
               <Button variant="outline" size="sm" onClick={sortLines}>
-                <SortAsc className="w-3 h-3 mr-1" />
-                Сортировать строки
+                <SortAsc className="w-3 h-3 mr-1" /> Сортировать строки
               </Button>
               <Button variant="outline" size="sm" onClick={countCharacters}>
-                <Calculator className="w-3 h-3 mr-1" />
-                Подсчитать символы
+                <Calculator className="w-3 h-3 mr-1" /> Подсчитать символы
               </Button>
             </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Быстрые исправления */}
+      <Card className="bg-card border-border">
+        <CardHeader>
+          <CardTitle className="text-lg">Быстрые исправления</CardTitle>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
+          <Button variant="outline" size="sm" onClick={fixDoubleSpaces}>Двойные пробелы → один</Button>
+          <Button variant="outline" size="sm" onClick={fixSpaceBeforePunct}>Убрать пробел перед пунктуацией</Button>
+          <Button variant="outline" size="sm" onClick={fixDoublePunctuation}>Двойная пунктуация → одна</Button>
+          <Button variant="outline" size="sm" onClick={replaceWithSmartQuotesRu}>Кавычки → «ёлочки»</Button>
+        </CardContent>
+      </Card>
 
       {/* Функции списков и Markdown */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -552,15 +629,30 @@ export const Editor = () => {
                 placeholder="Разделитель (например: ,)"
                 className="bg-background/50"
               />
+              {/* Избранные разделители */}
+              <div className="flex flex-wrap gap-2 mt-2">
+                {[", ", "; ", "|", " / ", "\t", ...favoriteSeparators].slice(0, 8).map((sep, idx) => (
+                  <Button
+                    key={`${sep}-${idx}`}
+                    variant={separator === sep ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setSeparator(sep)}
+                    className="text-xs"
+                  >
+                    {sep === "\t" ? "TAB" : sep}
+                  </Button>
+                ))}
+                <Button variant="ghost" size="sm" onClick={addCurrentSeparatorToFavorites} className="text-xs">
+                  + В избранные
+                </Button>
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-2">
               <Button variant="outline" size="sm" onClick={inlineToList}>
-                <List className="w-3 h-3 mr-1" />
-                Inline → Список
+                <List className="w-3 h-3 mr-1" /> Inline → Список
               </Button>
               <Button variant="outline" size="sm" onClick={listToInline}>
-                <AlignLeft className="w-3 h-3 mr-1" />
-                Список → Inline
+                <AlignLeft className="w-3 h-3 mr-1" /> Список → Inline
               </Button>
             </div>
           </CardContent>
@@ -575,54 +667,81 @@ export const Editor = () => {
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="grid grid-cols-2 gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => addMarkdown("bold")}
-              >
-                <Bold className="w-3 h-3 mr-1" />
-                ** Жирный **
+              <Button variant="outline" size="sm" onClick={() => addMarkdown("bold")}>
+                <Bold className="w-3 h-3 mr-1" /> ** Жирный **
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => addMarkdown("underline")}
-              >
-                <Underline className="w-3 h-3 mr-1" />
-                __ Подчеркнутый __
+              <Button variant="outline" size="sm" onClick={() => addMarkdown("underline")}>
+                <Underline className="w-3 h-3 mr-1" /> __ Подчеркнутый __
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => addMarkdown("code")}
-              >
+              <Button variant="outline" size="sm" onClick={() => addMarkdown("code")}>
                 <Code className="w-3 h-3 mr-1" />` Код `
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => addMarkdown("heading")}
-              >
+              <Button variant="outline" size="sm" onClick={() => addMarkdown("heading")}>
                 <Heading1 className="w-3 h-3 mr-1" /># Заголовок
               </Button>
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => addMarkdown("separator")}
-              >
-                <SeparatorHorizontal className="w-3 h-3 mr-1" />
-                --- Разделитель
+              <Button variant="outline" size="sm" onClick={() => addMarkdown("separator")}>
+                <SeparatorHorizontal className="w-3 h-3 mr-1" /> --- Разделитель
               </Button>
               <Button variant="outline" size="sm" onClick={removeMarkdown}>
-                <Settings className="w-3 h-3 mr-1" />
-                Убрать Markdown
+                <Settings className="w-3 h-3 mr-1" /> Убрать Markdown
               </Button>
             </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Цели по объёму */}
+      <Card className="bg-card border-border">
+        <CardHeader>
+          <CardTitle className="text-lg">Цели по объёму</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <Label htmlFor="target-chars">Цель по символам</Label>
+              <Input
+                id="target-chars"
+                type="number"
+                min={0}
+                value={targetChars}
+                onChange={(e) => setTargetChars(Number(e.target.value))}
+                className="bg-background/50"
+                placeholder="например, 1000"
+              />
+              {targetChars > 0 && (
+                <div className="mt-2 space-y-1">
+                  <Progress value={Math.min(100, (stats.chars / targetChars) * 100)} />
+                  <div className="text-xs text-muted-foreground">
+                    {stats.chars} / {targetChars} символов
+                  </div>
+                </div>
+              )}
+            </div>
+            <div>
+              <Label htmlFor="target-words">Цель по словам</Label>
+              <Input
+                id="target-words"
+                type="number"
+                min={0}
+                value={targetWords}
+                onChange={(e) => setTargetWords(Number(e.target.value))}
+                className="bg-background/50"
+                placeholder="например, 200"
+              />
+              {targetWords > 0 && (
+                <div className="mt-2 space-y-1">
+                  <Progress value={Math.min(100, (stats.words / targetWords) * 100)} />
+                  <div className="text-xs text-muted-foreground">
+                    {stats.words} / {targetWords} слов
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };
