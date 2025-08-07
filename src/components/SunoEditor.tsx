@@ -13,7 +13,6 @@ import {
   Download,
   Save,
   Copy,
-  Mic,
   Eye,
   Code,
   CheckCircle,
@@ -647,12 +646,7 @@ export const SunoEditor = () => {
     toast({ title: "Скопировано", description: "Текст песни скопирован" });
   };
 
-  const startVoiceInput = () => {
-    toast({
-      title: "Голосовой ввод",
-      description: "Функция будет доступна после интеграции с модулем Speech",
-    });
-  };
+
 
   const previewLyrics = () => {
     setIsPreviewMode(!isPreviewMode);
@@ -1012,16 +1006,7 @@ export const SunoEditor = () => {
                 <Download className="w-4 h-4 mr-2" />
                 Экспорт SUNO
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={startVoiceInput}
-                className="w-full justify-start"
-                disabled
-              >
-                <Mic className="w-4 h-4 mr-2" />
-                Голосовой ввод
-              </Button>
+
             </CardContent>
           </Card>
 

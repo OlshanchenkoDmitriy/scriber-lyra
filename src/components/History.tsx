@@ -22,7 +22,7 @@ export const History = () => {
   const [selectedLanguage, setSelectedLanguage] = useState<"all" | "ru" | "en">(
     "all"
   );
-  const [selectedType, setSelectedType] = useState<"all" | "speech" | "manual">(
+  const [selectedType, setSelectedType] = useState<"all" | "manual">(
     "all"
   );
   const { toast } = useToast();
@@ -150,13 +150,6 @@ export const History = () => {
                   Все
                 </Badge>
                 <Badge
-                  variant={selectedType === "speech" ? "default" : "outline"}
-                  className="cursor-pointer transition-smooth"
-                  onClick={() => setSelectedType("speech")}
-                >
-                  Речь
-                </Badge>
-                <Badge
                   variant={selectedType === "manual" ? "default" : "outline"}
                   className="cursor-pointer transition-smooth"
                   onClick={() => setSelectedType("manual")}
@@ -205,13 +198,7 @@ export const History = () => {
                     <Badge variant="outline">
                       {record.language === "ru" ? "🇷🇺 RU" : "🇺🇸 EN"}
                     </Badge>
-                    <Badge
-                      variant={
-                        record.type === "speech" ? "secondary" : "outline"
-                      }
-                    >
-                      {record.type === "speech" ? "Речь" : "Текст"}
-                    </Badge>
+                    <Badge variant="outline">Текст</Badge>
                   </div>
 
                   <div className="flex items-center space-x-1">

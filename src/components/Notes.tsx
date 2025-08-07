@@ -11,7 +11,6 @@ import {
   Trash2,
   Edit3,
   Save,
-  Mic,
   Copy,
   Undo,
   Redo,
@@ -146,13 +145,7 @@ export const Notes = () => {
     addToHistory("");
   };
 
-  const startVoiceInput = () => {
-    // В реальном приложении здесь будет интеграция с модулем Speech
-    toast({
-      title: "Голосовой ввод",
-      description: "Функция будет доступна после интеграции с модулем Speech",
-    });
-  };
+
 
   const exportNotes = () => {
     const dataStr = JSON.stringify(notes, null, 2);
@@ -385,9 +378,7 @@ export const Notes = () => {
                   <Button variant="outline" size="sm" onClick={clearContent}>
                     <Trash2 className="w-4 h-4" />
                   </Button>
-                  <Button variant="outline" size="sm" onClick={startVoiceInput}>
-                    <Mic className="w-4 h-4" />
-                  </Button>
+
 
                   <div className="flex items-center space-x-2 ml-auto">
                     <Type className="w-4 h-4" />
