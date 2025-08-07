@@ -14,7 +14,7 @@ export interface HistoryRecord {
   text: string;
   language: "ru" | "en";
   timestamp: Date;
-  type: "speech" | "manual";
+  type: "manual";
 }
 
 export interface SunoSong {
@@ -155,7 +155,7 @@ export const historyAPI = {
     saveToStorage(STORAGE_KEYS.HISTORY, []);
   },
 
-  filter: (language?: "ru" | "en", type?: "speech" | "manual"): HistoryRecord[] => {
+  filter: (language?: "ru" | "en", type?: "manual"): HistoryRecord[] => {
     const history = historyAPI.getAll();
     return history.filter(record => {
       const matchesLanguage = !language || record.language === language;
